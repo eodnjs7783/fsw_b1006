@@ -1,4 +1,4 @@
-# BEE-1000 FSW
+# BEE FSW
 - Author: Kweon HyeokJin
 
 # Notes

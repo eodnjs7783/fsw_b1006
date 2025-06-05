@@ -14,7 +14,7 @@
 
 #include "cfe_srl_csp.h"
 
-const char *SatName = "BEE-1000"; // Revise name according to specific misison
+const char *SatName = "BEE"; // Revise name according to specific misison
 
 /**
  * Indexed by CSP Node number.

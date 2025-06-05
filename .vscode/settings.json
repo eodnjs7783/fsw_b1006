@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "string.h": "c",
+        "uant_app.h": "c",
+        "uant.h": "c",
+        "bee.h": "c",
+        "cfe_sb.h": "c",
+        "cfe_srl_handle.h": "c"
+    }
+}

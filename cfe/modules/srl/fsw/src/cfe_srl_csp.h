@@ -15,7 +15,7 @@
 #define CSP_TIMEOUT(x)              (x)*1000
 
 /**
- * BEE-1000 CSP Nodes
+ * BEE CSP Nodes
  * 
  * Consider CubeSpace's ADCS Solution.
  */
