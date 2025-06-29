@@ -32,6 +32,7 @@
 #include "uant_app_msgids.h"
 #include "uant_app_msg.h"
 #include "cfe_msg.h"
+#include <gs/gssb/gssb_ant6.h>
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
@@ -76,10 +77,11 @@ bool UANT_APP_VerifyCmdLength(const CFE_MSG_Message_t *MsgPtr, size_t ExpectedLe
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
 void UANT_APP_ProcessGroundCommand(const CFE_SB_Buffer_t *SBBufPtr)
 {   CFE_Status_t     status; // 내부 판단용
-    CFE_MSG_FcnCode_t CommandCode = 0;
-    CFE_MSG_GetFcnCode(&SBBufPtr->Msg, &CommandCode);
+    CFE_MSG_FcnCode_t cc = 0;
+    CFE_MSG_GetFcnCode(&SBBufPtr->Msg, &cc);
+    gs_error_t   gs_st;
 
-    switch (CommandCode)
+    switch (cc)
     {
         /* ───────── NOOP ───────── */
         case UANT_APP_NOOP_CC:
@@ -115,33 +117,16 @@ void UANT_APP_ProcessGroundCommand(const CFE_SB_Buffer_t *SBBufPtr)
             }
             break;
 
-        /* ───────── ARM / DISARM ───────── */
-        case UANT_APP_ARM_ANTENNA_SYSTEMS_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_ArmAntennaSystemsCmd_t)))
+         /* ------------ Board Soft‑Reboot ------------ */
+        case UANT_APP_SOFT_REBOOT_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_SoftRebootCmd_t)))
             {
-                status = ISIS_UANT_ArmAntennaSystems();
-                if (status != CFE_SUCCESS)
+                const UANT_APP_SoftRebootCmd_t *cmd = (const void *)SBBufPtr;
+                gs_st = gs_gssb_soft_reset(cmd->Addr, UANT_I2C_TIMEOUT_MS);
+                if (gs_st != GS_OK)
                 {
-                    CFE_EVS_SendEvent(UANT_APP_ARM_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: ArmAntennaSystems failed, status = 0x%08X", status);
-                    UANT_APP_Data.ErrCounter++;
-                }
-                else
-                {
-                    UANT_APP_Data.CmdCounter++;
-                }
-                
-            }
-            break;
-
-        case UANT_APP_DISARM_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_DisarmCmd_t)))
-            {
-                status = ISIS_UANT_Disarm();
-                if (status != CFE_SUCCESS)
-                {
-                    CFE_EVS_SendEvent(UANT_APP_DISARM_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: Disarm failed, status = 0x%08X", status);
+                    CFE_EVS_SendEvent(UANT_APP_I2C_XFER_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "ANT‑6F soft‑reset failed, gs_err=0x%02X", gs_st);
                     UANT_APP_Data.ErrCounter++;
                 }
                 else
@@ -151,205 +136,224 @@ void UANT_APP_ProcessGroundCommand(const CFE_SB_Buffer_t *SBBufPtr)
             }
             break;
 
-        /* ───────── 자동 전개 ───────── */
-        case UANT_APP_AUTOMATED_DEPLOYMENT_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_AutomatedDeploymentCmd_t)))
-            {
-                const UANT_APP_ISIS_AutomatedDeploymentCmd_t *cmd = (const UANT_APP_ISIS_AutomatedDeploymentCmd_t *)SBBufPtr;
-                status = ISIS_UANT_AutomatedSequentialDeployment(cmd->Arg);
-                if (status != CFE_SUCCESS)
-                {
-                    CFE_EVS_SendEvent(UANT_APP_AUTO_DEPLOY_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: AutomatedSequentialDeployment failed, status = 0x%08X", status);
-                    UANT_APP_Data.ErrCounter++;
-                }
-                else
-                {
-                    UANT_APP_Data.CmdCounter++;
-                }
-            }
-            break;
 
-        /* ───────── 단일 안테나 전개 ───────── */
-        case UANT_APP_DEPLOY_ANT1_CC:
-        case UANT_APP_DEPLOY_ANT2_CC:
-        case UANT_APP_DEPLOY_ANT3_CC:
-        case UANT_APP_DEPLOY_ANT4_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_DeployAnt1Cmd_t)))
+        /* ------------ Burn / Stop ------------ */
+        case UANT_APP_BURN_CHANNEL_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_BurnChannelCmd_t)))
             {
-                const UANT_APP_ISIS_DeployAnt1Cmd_t *cmd = (const UANT_APP_ISIS_DeployAnt1Cmd_t *)SBBufPtr;
-                switch (CommandCode)
-                {
-                    case UANT_APP_DEPLOY_ANT1_CC: status = ISIS_UANT_DeployAntenna1(cmd->Arg); break;
-                    case UANT_APP_DEPLOY_ANT2_CC: status = ISIS_UANT_DeployAntenna2(cmd->Arg); break;
-                    case UANT_APP_DEPLOY_ANT3_CC: status = ISIS_UANT_DeployAntenna3(cmd->Arg); break;
-                    case UANT_APP_DEPLOY_ANT4_CC: status = ISIS_UANT_DeployAntenna4(cmd->Arg); break;
-                }
-                if (status != CFE_SUCCESS)
-                {
-                    CFE_EVS_SendEvent(UANT_APP_DEPLOY_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: DeployAntennaX failed, status = 0x%08X", status);
-                    UANT_APP_Data.ErrCounter++;
-                }
-                else
-                {
-                    UANT_APP_Data.CmdCounter++;
-                }
-            }
-            break;
+                const UANT_APP_BurnChannelCmd_t *cmd = (const void *)SBBufPtr;
 
-        /* ───────── Override 전개 ───────── */
-        case UANT_APP_DEPLOY_ANT1_OVERRIDE_CC:
-        case UANT_APP_DEPLOY_ANT2_OVERRIDE_CC:
-        case UANT_APP_DEPLOY_ANT3_OVERRIDE_CC:
-        case UANT_APP_DEPLOY_ANT4_OVERRIDE_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_DeployAnt1OverrideCmd_t)))
-            {
-                const UANT_APP_ISIS_DeployAnt1OverrideCmd_t *cmd = (const UANT_APP_ISIS_DeployAnt1OverrideCmd_t *)SBBufPtr; //MSG에 딸려오는 건 arg임 메시지 구조상 그렇다
-                switch (CommandCode)
+                if (cmd->Channel > 1 || cmd->Duration > 60)
                 {
-                    case UANT_APP_DEPLOY_ANT1_OVERRIDE_CC:
-                        status = ISIS_UANT_DeployAntenna1WithOverride(cmd->Arg);
-                        break;
-                    case UANT_APP_DEPLOY_ANT2_OVERRIDE_CC:
-                        status = ISIS_UANT_DeployAntenna2WithOverride(cmd->Arg);
-                        break;
-                    case UANT_APP_DEPLOY_ANT3_OVERRIDE_CC:
-                        status = ISIS_UANT_DeployAntenna3WithOverride(cmd->Arg);
-                        break;
-                    case UANT_APP_DEPLOY_ANT4_OVERRIDE_CC:
-                        status = ISIS_UANT_DeployAntenna4WithOverride(cmd->Arg);
-                        break;
-                }
-
-                if (status != CFE_SUCCESS)
-                {
-                    CFE_EVS_SendEvent(UANT_APP_DEPLOY_OVRD_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: DeployAntennaXWithOverride failed, status = 0x%08X", status);
+                    CFE_EVS_SendEvent(UANT_APP_CC_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "Burn param out of range (ch=%u dur=%u)",
+                                    cmd->Channel, cmd->Duration);
                     UANT_APP_Data.ErrCounter++;
-                }
-                else
-                {
-                    UANT_APP_Data.CmdCounter++;
-                }
-            }
-            break;
-
-        /* ───────── 전개 취소 ───────── */
-        case UANT_APP_CANCEL_DEPLOYMENT_ACTIVATION_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_CancelDeploymentActivationCmd_t)))
-            {
-                status = ISIS_UANT_CancelDeploymentSystemActivation();
-                if (status != CFE_SUCCESS)
-                {
-                    CFE_EVS_SendEvent(UANT_APP_DEPLOY_CANCEL_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: CancelDeploymentSystemActivation failed, status = 0x%08X", status);
-                    UANT_APP_Data.ErrCounter++;
-                }
-                else
-                {
-                    UANT_APP_Data.CmdCounter++;
-                }
-                    }
                     break;
+                }
 
-        /* ───────── 상태 조회 ───────── */
-        case UANT_APP_GET_DEPLOYMENT_STATUS_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_ReportDeploymentStatusCmd_t)))
+                gs_st = gs_gssb_ant6_burn_channel(cmd->Addr, UANT_I2C_TIMEOUT_MS,
+                                                cmd->Channel, cmd->Duration);
+                if (gs_st != GS_OK)
+                {
+                    CFE_EVS_SendEvent(UANT_APP_BURN_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "Burn failed, gs_err=0x%02X", gs_st);
+                    UANT_APP_Data.ErrCounter++;
+                }
+                else
+                {
+                    UANT_APP_Data.CmdCounter++;
+                }
+            }
+            break;
+
+        case UANT_APP_STOP_BURN_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_StopBurnCmd_t)))
             {
-                uint16 deploy_status; //읽어온 payload를 저장할 저장
-                status=ISIS_UANT_ReportDeploymentStatus(&deploy_status); //저장하고자 할 변수의 주소를 넣으면 읽어와서 넣어줌
-                
-                
-                if (status != CFE_SUCCESS)
+                const UANT_APP_StopBurnCmd_t *cmd = (const void *)SBBufPtr;
+                gs_st = gs_gssb_common_stop_burn(cmd->Addr, UANT_I2C_TIMEOUT_MS);
+                if (gs_st != GS_OK)
+                {
+                    CFE_EVS_SendEvent(UANT_APP_STOP_BURN_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "Stop‑burn failed, gs_err=0x%02X", gs_st);
+                    UANT_APP_Data.ErrCounter++;
+                }
+                else
+                {
+                    UANT_APP_Data.CmdCounter++;
+                }
+            }
+            break;
+
+        /* ---------- BOARD‑STATUS (uptime, reboot‑cnt) ---------- */
+        case UANT_APP_GET_BOARD_STATUS_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_GetBoardStatusCmd_t)))
+            {
+                const UANT_APP_GetBoardStatusCmd_t *cmd = (const void *)SBBufPtr;
+                gs_gssb_board_status_t bs;
+                gs_st = gs_gssb_ant6_get_board_status(cmd->Addr, UANT_I2C_TIMEOUT_MS, &bs);
+
+                if (gs_st != GS_OK)
+                {
+                    CFE_EVS_SendEvent(UANT_APP_GET_BOARD_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "get_board_status fail, gs_err=0x%02X", gs_st);
+                    UANT_APP_Data.ErrCounter++;
+                }
+                else
+                {
+                    UANT_APP_BoardStatusTlm_t tlm;
+                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TlmHdr),
+                                CFE_SB_ValueToMsgId(UANT_APP_BRD_TLM_MID),
+                                sizeof(tlm));
+                    memcpy(&tlm.Payload, &bs, sizeof(bs));
+                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TlmHdr));
+                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TlmHdr), true);
+                    UANT_APP_Data.CmdCounter++;
+                }
+            }
+            break;
+
+        /* ---------- MCU 내부 온도 ---------- */
+        case UANT_APP_GET_TEMPERATURE_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_GetTemperatureCmd_t)))
+            {
+                const UANT_APP_GetTemperatureCmd_t *cmd = (const void *)SBBufPtr;
+                int16_t temp;
+                gs_st = gs_gssb_ant6_get_internal_temp(cmd->Addr, UANT_I2C_TIMEOUT_MS, &temp);
+
+                if (gs_st != GS_OK)
+                {
+                    CFE_EVS_SendEvent(UANT_APP_GET_TEMP_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "get_internal_temp fail, gs_err=0x%02X", gs_st);
+                    UANT_APP_Data.ErrCounter++;
+                }
+                else
+                {
+                    UANT_APP_TempTlm_t tlm;
+                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TlmHdr),
+                                CFE_SB_ValueToMsgId(UANT_APP_TEMP_TLM_MID),
+                                sizeof(tlm));
+                    tlm.Payload.Temperature = temp;
+                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TlmHdr));
+                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TlmHdr), true);
+                    UANT_APP_Data.CmdCounter++;
+                }
+            }
+            break;
+
+
+       /* ------------ Telemetry pulls ------------ */
+        case UANT_APP_GET_STATUS_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_GetStatusCmd_t)))
+            {
+                const UANT_APP_GetStatusCmd_t *cmd = (const void *)SBBufPtr;
+                gs_gssb_ant6_release_status_t st;
+                gs_st = gs_gssb_ant6_get_release_status(cmd->Addr, UANT_I2C_TIMEOUT_MS, &st);
+                if (gs_st != GS_OK)
                 {
                     CFE_EVS_SendEvent(UANT_APP_GET_STATUS_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: Failed to get deployment status, status = 0x%08X", status);
+                                    "get_release_status fail, gs_err=0x%02X", gs_st);
                     UANT_APP_Data.ErrCounter++;
                 }
                 else
                 {
-                    UANT_APP_GET_DEPLOYMENT_STATUS_t tlm;
-                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TelemetryHeader), CFE_SB_ValueToMsgId(UANT_APP_OP_TLM_MID), sizeof(tlm));
-                    tlm.Payload = deploy_status;
-                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TelemetryHeader));
-                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TelemetryHeader), true);
+                    UANT_APP_RlsStatusTlm_t tlm;
+                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TlmHdr),
+                                CFE_SB_ValueToMsgId(UANT_APP_RLS_TLM_MID),
+                                sizeof(tlm));
+                    memcpy(&tlm.Payload, &st, sizeof(st));
+                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TlmHdr));
+                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TlmHdr), true);
                     UANT_APP_Data.CmdCounter++;
                 }
             }
             break;
 
-        /* ───────── 온도 조회 ───────── */
-        case UANT_APP_MEASURE_SYSTEM_TEMPERATURE_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_MeasureSystemTemperatureCmd_t)))
+        case UANT_APP_GET_BACKUP_STATUS_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_GetBackupStatusCmd_t)))
             {
-                uint16 raw;
-                status=ISIS_UANT_MeasureAntennaSystemTemperature(&raw);
-                if (status != CFE_SUCCESS)
+                const UANT_APP_GetBackupStatusCmd_t *cmd = (const void *)SBBufPtr;
+                gs_gssb_backup_status_t bs;
+                gs_st = gs_gssb_ant6_get_backup_status(cmd->Addr, UANT_I2C_TIMEOUT_MS, &bs);
+                if (gs_st != GS_OK)
                 {
-                    CFE_EVS_SendEvent(UANT_APP_MEASURE_TEMP_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: Failed to measure temperature, status = 0x%08X", status);
+                    CFE_EVS_SendEvent(UANT_APP_GET_BACKUP_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "get_backup_status fail, gs_err=0x%02X", gs_st);
                     UANT_APP_Data.ErrCounter++;
                 }
                 else
                 {
-                    UANT_APP_MEASURE_SYSTEM_TEMPERATURE_t tlm;
-                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TelemetryHeader), CFE_SB_ValueToMsgId(UANT_APP_OP_TLM_MID), sizeof(tlm));
-                    tlm.Payload = raw;
-                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TelemetryHeader));
-                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TelemetryHeader), true);
+                    UANT_APP_BackupStatusTlm_t tlm;
+                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TlmHdr),
+                                CFE_SB_ValueToMsgId(UANT_APP_BKP_TLM_MID),
+                                sizeof(tlm));
+                    memcpy(&tlm.Payload, &bs, sizeof(bs));
+                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TlmHdr));
+                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TlmHdr), true);
+                    UANT_APP_Data.CmdCounter++;
+                }
+            }
+            break;
+        
+        /* ---------- 백업‑설정 READ ---------- */
+        case UANT_APP_GET_SETTINGS_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_GetSettingsCmd_t)))
+            {
+                const UANT_APP_GetSettingsCmd_t *cmd = (const void *)SBBufPtr;
+                gs_gssb_backup_settings_t cfg;
+                gs_st = gs_gssb_ant6_get_backup_settings(cmd->Addr, UANT_I2C_TIMEOUT_MS, &cfg);
+
+                if (gs_st != GS_OK)
+                {
+                    CFE_EVS_SendEvent(UANT_APP_GET_SETTINGS_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "get_backup_settings fail, gs_err=0x%02X", gs_st);
+                    UANT_APP_Data.ErrCounter++;
+                }
+                else
+                {
+                    UANT_APP_SettingsTlm_t tlm;
+                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TlmHdr),
+                                CFE_SB_ValueToMsgId(UANT_APP_CFG_TLM_MID),
+                                sizeof(tlm));
+                    tlm.Payload.MinutesUntilDeploy = cfg.minutes;
+                    tlm.Payload.BackupActive       = cfg.backup_active;
+                    tlm.Payload.MaxBurnDuration    = cfg.max_burn_duration;
+                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TlmHdr));
+                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TlmHdr), true);
                     UANT_APP_Data.CmdCounter++;
                 }
             }
             break;
 
-        /* ───────── 활성화 횟수 보고 ───────── */
-        case UANT_APP_REPORT_ANT_ACTIVATION_CNT_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_ReportAntActivationCntCmd_t)))
+        /* ---------- 백업‑설정 WRITE ---------- */
+        case UANT_APP_SET_SETTINGS_CC:
+            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_SetSettingsCmd_t)))
             {
-                uint8 count; //buffer 즉 일정크기의 임시저장소
-                
-                uint8 ant = ((UANT_APP_ISIS_ReportAntActivationCntCmd_t *)SBBufPtr)->Arg; //arg가 딸려서 온 텔레메트리 요구 명령
-                status=ISIS_UANT_ReportAntennaActivationCount(ant, &count);
-                if (status != CFE_SUCCESS)
+                const UANT_APP_SetSettingsCmd_t *cmd = (const void *)SBBufPtr;
+                gs_gssb_backup_settings_t cfg = {
+                    .minutes           = cmd->MinutesUntilDeploy,
+                    .backup_active     = cmd->BackupActive,
+                    .max_burn_duration = cmd->MaxBurnDuration
+                };
+
+                /* 범위 검사 */
+                if (cfg.minutes > 5000 || cfg.max_burn_duration > 60 || cfg.backup_active > 1)
                 {
-                    CFE_EVS_SendEvent(UANT_APP_GET_ACT_CNT_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: Failed to report activation count for ANT-%d, status = 0x%08X", ant, status);
+                    CFE_EVS_SendEvent(UANT_APP_SET_SETTINGS_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "backup_cfg param out of range");
+                    UANT_APP_Data.ErrCounter++;
+                    break;
+                }
+
+                gs_st = gs_gssb_ant6_set_backup_settings(cmd->Addr, UANT_I2C_TIMEOUT_MS, cfg);
+                if (gs_st != GS_OK)
+                {
+                    CFE_EVS_SendEvent(UANT_APP_SET_SETTINGS_ERR_EID, CFE_EVS_EventType_ERROR,
+                                    "set_backup_settings fail, gs_err=0x%02X", gs_st);
                     UANT_APP_Data.ErrCounter++;
                 }
                 else
                 {
-                    UANT_APP_REPORT_ANT_ACTIVATION_CNT_t tlm;
-                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TelemetryHeader), CFE_SB_ValueToMsgId(UANT_APP_OP_TLM_MID), sizeof(tlm));
-                    tlm.Payload = count;
-                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TelemetryHeader));
-                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TelemetryHeader), true);
-                    UANT_APP_Data.CmdCounter++;
-                }
-            }
-            break;
-
-        /* ───────── 활성화 시간 보고 ───────── */
-        case UANT_APP_REPORT_ANT_ACTIVATION_TIME_CC:
-            if (UANT_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(UANT_APP_ISIS_ReportAntActivationTimeCmd_t)))
-            {
-                uint16 time;
-                uint8 ant = ((UANT_APP_ISIS_ReportAntActivationTimeCmd_t *)SBBufPtr)->Arg; //받은명령에서 몇번 안테나를 원하는지 뽑아냄
-                status=ISIS_UANT_ReportAntennaActivationTime(ant, &time); //해당 안테나 레지스터 읽기
-                if (status != CFE_SUCCESS)
-                {
-                    CFE_EVS_SendEvent(UANT_APP_GET_ACT_TIME_ERR_EID, CFE_EVS_EventType_ERROR,
-                                    "UANT: Failed to report activation time for ANT-%d, status = 0x%08X", ant, status);
-                    UANT_APP_Data.ErrCounter++;
-                }
-                else
-                {
-                    UANT_APP_REPORT_ANT_ACTIVATION_TIME_t tlm;
-                    CFE_MSG_Init(CFE_MSG_PTR(tlm.TelemetryHeader), CFE_SB_ValueToMsgId(UANT_APP_OP_TLM_MID), sizeof(tlm));
-                    tlm.Payload = time;
-                    CFE_SB_TimeStampMsg(CFE_MSG_PTR(tlm.TelemetryHeader));
-                    CFE_SB_TransmitMsg(CFE_MSG_PTR(tlm.TelemetryHeader), true);
-
                     UANT_APP_Data.CmdCounter++;
                 }
             }

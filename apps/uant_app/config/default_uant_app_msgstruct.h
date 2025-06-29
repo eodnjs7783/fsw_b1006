@@ -1,217 +1,193 @@
 /************************************************************************
- * NASA Docket No. GSC-18,719-1, and identified as “core Flight System: Bootes”
+ * UANT (GomSpace ANT‑6F) ‑ cFS Application
  *
- * Copyright (c) 2020 United States Government as represented by the
- * Administrator of the National Aeronautics and Space Administration.
- * All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License. You may obtain
- * a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Message Structure Definitions
  ************************************************************************/
 
-/**
- * @file
- *   Specification for the UANT_APP command and telemetry // sb로 command도 msg로 받지만 app이 tlm도 msg로 sb에 보낸다. 
- *   message data types.
- *
- * @note
- *   Constants and enumerated types related to these message structures
- *   are defined in uant_app_msgdefs.h.
- */
 #ifndef UANT_APP_MSGSTRUCT_H
 #define UANT_APP_MSGSTRUCT_H
 
 /************************************************************************
  * Includes
  ************************************************************************/
-#include "uant_app_mission_cfg.h"
-#include "uant_app_msgdefs.h"
+#include <stdint.h>
+
 #include "cfe_msg_hdr.h"
+#include "uant_app_msgdefs.h"      /* 기능‑코드, 길이 매크로 등 */
+#include "uant_app_mission_cfg.h"  /* 미션별 상수 */
 
 /************************************************************************
- * UANT App Command Message Structures
+ *  Command Messages
+ *
+ *  NOTE
+ *  —— All commands that act on the ANT‑6F board carry the I²C address
+ *     as the **first** payload byte (Addr).  Multi‑byte numerical
+ *     fields are little‑endian by cFS 규약.
  ************************************************************************/
 
-/*
-** No-Arguments Commands
-*/
+/* 0‑argument commands */
 typedef struct
 {
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_NoopCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ResetCountersCmd_t;
+    CFE_MSG_CommandHeader_t CmdHdr;
+} UANT_APP_NoopCmd_t;              /* FC = UANT_APP_NOOP_CC */
 
 typedef struct
 {
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ResetAppCmdCountersCmd_t;
+    CFE_MSG_CommandHeader_t CmdHdr;
+} UANT_APP_ResetCountersCmd_t;     /* FC = UANT_APP_RESET_COUNTERS_CC */
 
 typedef struct
 {
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ResetDeviceCmdCountersCmd_t;
+    CFE_MSG_CommandHeader_t CmdHdr;
+} UANT_APP_SoftRebootCmd_t;        /* FC = UANT_APP_SOFT_REBOOT_CC */
+
+/* Burn one channel for N seconds
+   Args: Addr, Channel(0|1), Duration(0‑60 s) */
+typedef struct
+{
+    CFE_MSG_CommandHeader_t CmdHdr;
+    uint8_t                 Addr;
+    uint8_t                 Channel;
+    uint8_t                 Duration;
+} UANT_APP_BurnChannelCmd_t;       /* FC = UANT_APP_BURN_CHANNEL_CC */
+
+/* Stop any on‑going burn on the board
+   Args: Addr */
+typedef struct
+{
+    CFE_MSG_CommandHeader_t CmdHdr;
+    uint8_t                 Addr;
+} UANT_APP_StopBurnCmd_t;          /* FC = UANT_APP_STOP_BURN_CC */
+
+/* Telemetry‑pull commands (all 1‑byte Addr argument) */
+typedef struct
+{
+    CFE_MSG_CommandHeader_t CmdHdr;
+    uint8_t                 Addr;
+} UANT_APP_GetStatusCmd_t;         /* FC = UANT_APP_GET_STATUS_CC */
 
 typedef struct
 {
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_DeviceInitCmd_t;
+    CFE_MSG_CommandHeader_t CmdHdr;
+    uint8_t                 Addr;
+} UANT_APP_GetBackupStatusCmd_t;   /* FC = UANT_APP_GET_BACKUP_STATUS_CC */
 
 typedef struct
 {
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ISIS_ResetCmd_t;
+    CFE_MSG_CommandHeader_t CmdHdr;
+    uint8_t                 Addr;
+} UANT_APP_GetBoardStatusCmd_t;    /* FC = UANT_APP_GET_BOARD_STATUS_CC */
 
 typedef struct
 {
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ISIS_ReportDeploymentStatusCmd_t;
+    CFE_MSG_CommandHeader_t CmdHdr;
+    uint8_t                 Addr;
+} UANT_APP_GetTemperatureCmd_t;    /* FC = UANT_APP_GET_TEMPERATURE_CC */
+
+/* Backup‑deploy settings (read / write) */
+typedef struct
+{
+    CFE_MSG_CommandHeader_t CmdHdr;
+    uint8_t                 Addr;
+} UANT_APP_GetSettingsCmd_t;       /* FC = UANT_APP_GET_SETTINGS_CC */
 
 typedef struct
 {
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ISIS_ArmAntennaSystemsCmd_t;
+    CFE_MSG_CommandHeader_t CmdHdr;
+    uint8_t                 Addr;
+    uint16_t                MinutesUntilDeploy;   /* 0‑5000 min */
+    uint8_t                 BackupActive;         /* 0|1 */
+    uint8_t                 MaxBurnDuration;      /* 0‑127 s */
+} UANT_APP_SetSettingsCmd_t;       /* FC = UANT_APP_SET_SETTINGS_CC */
+
+/************************************************************************
+ *  Telemetry Messages
+ ************************************************************************/
+
+/*---------------- Housekeeping ----------------*/
+typedef struct
+{
+    uint8_t  CmdCounter;     /* accepted */
+    uint8_t  ErrCounter;     /* rejected */
+} UANT_APP_HkTlm_Payload_t;
 
 typedef struct
 {
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ISIS_DisarmCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ISIS_CancelDeploymentActivationCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_ISIS_MeasureSystemTemperatureCmd_t;
-
-/*
-** 1-Byte Argument Commands
-*/
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_AutomatedDeploymentCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_DeployAnt1Cmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_DeployAnt2Cmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_DeployAnt3Cmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_DeployAnt4Cmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_DeployAnt1OverrideCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_DeployAnt2OverrideCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_DeployAnt3OverrideCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_DeployAnt4OverrideCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_ReportAntActivationCntCmd_t;
-
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-    uint8                  Arg;
-} UANT_APP_ISIS_ReportAntActivationTimeCmd_t;
-
-
-
-/*
-** Send Housekeeping Packet Command
-*/
-typedef struct
-{
-    CFE_MSG_CommandHeader_t CommandHeader;
-} UANT_APP_SendHkCmd_t;
-
-/*
-** Housekeeping Telemetry Packet
-*/
-typedef struct
-{
-    CFE_MSG_TelemetryHeader_t TelemetryHeader;
+    CFE_MSG_TelemetryHeader_t TlmHdr;
     UANT_APP_HkTlm_Payload_t  Payload;
 } UANT_APP_HkTlm_t;
 
-/*
-** Operation Telemetry Packet
-*/
-typedef struct 
+/*---------------- Release / Burn status ----------------
+   Maps 1‑to‑1 to gs_gssb_ant6_get_release_status() payload */
+typedef struct
 {
-    CFE_MSG_TelemetryHeader_t TelemetryHeader;
-    uint16 Payload;
-}UANT_APP_GET_DEPLOYMENT_STATUS_t;
+    uint8_t Ch0State;        /* 0 idle / 1 burning              */
+    uint8_t Ch0TimeLeft;     /* seconds                         */
+    uint8_t Ch0Released;     /* 0 not ‑ 1 yes                   */
+    uint8_t Ch1State;
+    uint8_t Ch1TimeLeft;
+    uint8_t Ch1Released;
+    uint8_t Ch0Tries;        /* burn attempts                   */
+    uint8_t Ch1Tries;
+} UANT_APP_RlsStatus_Payload_t;
 
-typedef struct 
+typedef struct
 {
-    CFE_MSG_TelemetryHeader_t TelemetryHeader;
-    uint8 Payload;
-}UANT_APP_REPORT_ANT_ACTIVATION_CNT_t;
+    CFE_MSG_TelemetryHeader_t TlmHdr;
+    UANT_APP_RlsStatus_Payload_t Payload;
+} UANT_APP_RlsStatusTlm_t;
 
-typedef struct 
+/*---------------- Backup‑timer status ---------------
+   gs_gssb_ant6_get_backup_status() */
+typedef struct
 {
-    CFE_MSG_TelemetryHeader_t TelemetryHeader;
-    uint16 Payload;
-}UANT_APP_MEASURE_SYSTEM_TEMPERATURE_t;
+    uint8_t  State;              /* 0‑4 per ANT‑6F spec */
+    uint32_t SecondsToDeploy;
+} UANT_APP_BackupStatus_Payload_t;
 
-typedef struct 
+typedef struct
 {
-    CFE_MSG_TelemetryHeader_t TelemetryHeader;
-    uint16 Payload;
-}UANT_APP_REPORT_ANT_ACTIVATION_TIME_t;
+    CFE_MSG_TelemetryHeader_t TlmHdr;
+    UANT_APP_BackupStatus_Payload_t Payload;
+} UANT_APP_BackupStatusTlm_t;
 
+/*---------------- Board (MCU) status ----------------*/
+typedef struct
+{
+    uint32_t SecondsSinceBoot;
+    uint8_t  RebootCount;
+} UANT_APP_BoardStatus_Payload_t;
+
+typedef struct
+{
+    CFE_MSG_TelemetryHeader_t TlmHdr;
+    UANT_APP_BoardStatus_Payload_t Payload;
+} UANT_APP_BoardStatusTlm_t;
+
+/*---------------- Temperature -----------------------*/
+typedef struct
+{
+    int16_t  Temperature; /* °C × 1 (LM75 style) */
+} UANT_APP_Temp_Payload_t;
+
+typedef struct
+{
+    CFE_MSG_TelemetryHeader_t TlmHdr;
+    UANT_APP_Temp_Payload_t   Payload;
+} UANT_APP_TempTlm_t;
+
+/*---------------- Backup‑settings readback ----------*/
+typedef struct
+{
+    uint16_t MinutesUntilDeploy;
+    uint8_t  BackupActive;
+    uint8_t  MaxBurnDuration;
+} UANT_APP_Settings_Payload_t;
+
+typedef struct
+{
+    CFE_MSG_TelemetryHeader_t TlmHdr;
+    UANT_APP_Settings_Payload_t Payload;
+} UANT_APP_SettingsTlm_t;
 
 #endif /* UANT_APP_MSGSTRUCT_H */
-

@@ -26,6 +26,7 @@ target_include_directories(uant_app PUBLIC
 )
 # Include the public API from uant_lib to demonstrate how
 # to call library-provided functions
+add_cfe_app_dependency(uant_app libgssb_client)
 #add_cfe_app_dependency(uant_app)
 
 # Add table

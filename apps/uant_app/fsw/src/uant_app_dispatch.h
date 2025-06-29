@@ -31,6 +31,7 @@
 #include "cfe.h"
 #include "uant_app_msg.h"
 #include "cfe_msg.h"
+#include <gs/gssb/gssb_ant6.h>
 
 void UANT_APP_TaskPipe(const CFE_SB_Buffer_t *SBBufPtr);
 void UANT_APP_ProcessGroundCommand(const CFE_SB_Buffer_t *SBBufPtr);

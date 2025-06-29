@@ -35,29 +35,29 @@
 /*
 ** Sample App command codes
 */
-typedef enum {
-    UANT_APP_NOOP_CC,
-    UANT_APP_RESET_COUNTERS_CC,
+typedef enum
+{
+    /* Housekeeping / common */
+    UANT_APP_NOOP_CC = 0,          /* Ping */
+    UANT_APP_RESET_COUNTERS_CC,    /* Zero burn & reboot counters           */
+    UANT_APP_SOFT_REBOOT_CC,       /* MCU soft reset                        */
 
+    /* Burn control */
+    UANT_APP_BURN_CHANNEL_CC,      /* Args: addr, channel (0|1), seconds    */
+    UANT_APP_STOP_BURN_CC,         /* Args: addr                            */
 
-    UANT_APP_RESET_CC,
-    UANT_APP_GET_DEPLOYMENT_STATUS_CC,
-    UANT_APP_ARM_ANTENNA_SYSTEMS_CC,
-    UANT_APP_DISARM_CC,
-    UANT_APP_AUTOMATED_DEPLOYMENT_CC,
-    UANT_APP_CANCEL_DEPLOYMENT_ACTIVATION_CC,
+    /* Telemetry */
+    UANT_APP_GET_STATUS_CC,        /* Burn + release status (gs_gssb_ant6_get_release_status) */
+    UANT_APP_GET_BACKUP_STATUS_CC, /* Backup timer/state  (gs_gssb_ant6_get_backup_status)  */
+    UANT_APP_GET_BOARD_STATUS_CC,  /* Uptime, reboot cnt  (gs_gssb_ant6_get_board_status)   */
+    UANT_APP_GET_TEMPERATURE_CC,   /* MCU internal temp (gs_gssb_ant6_get_internal_temp)   */
 
-    UANT_APP_DEPLOY_ANT1_CC,
-    UANT_APP_DEPLOY_ANT2_CC,
-    UANT_APP_DEPLOY_ANT3_CC,
-    UANT_APP_DEPLOY_ANT4_CC,
-    UANT_APP_DEPLOY_ANT1_OVERRIDE_CC,
-    UANT_APP_DEPLOY_ANT2_OVERRIDE_CC,
-    UANT_APP_DEPLOY_ANT3_OVERRIDE_CC,
-    UANT_APP_DEPLOY_ANT4_OVERRIDE_CC,
-    UANT_APP_REPORT_ANT_ACTIVATION_CNT_CC,
-    UANT_APP_REPORT_ANT_ACTIVATION_TIME_CC,
-    UANT_APP_MEASURE_SYSTEM_TEMPERATURE_CC,
+    /* Backup settings */
+    UANT_APP_GET_SETTINGS_CC,      /* Read  backup cfg (minutes, active, max) */
+    UANT_APP_SET_SETTINGS_CC,      /* Write backup cfg                        */
+
+   
+
 }uant_app_cc_n;
 
 #endif
