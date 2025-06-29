@@ -24,10 +24,5 @@
   branch = main
 [submodule "submodules/libgscsp"]
 	path = submodules/libgscsp
-	url = http://165.132.141.168:3000/ILOVEMOZART/libgscsp
-[submodule "submodules/toolchain"]
-	path = submodules/toolchain
-	url = http://165.132.141.168:3000/ILOVEMOZART/OBC_Toolchain
-[submodule "submodules/libgpiod"]
-	path = submodules/libgpiod
-	url = http://165.132.141.168:3000/ILOVEMOZART/libgpiod_1.6.x
+	url = https://github.com/eodnjs7783/libgscsp
+
