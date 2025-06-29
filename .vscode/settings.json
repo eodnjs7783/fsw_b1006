@@ -114,7 +114,13 @@
         "cfe_resourceid_api_typedefs.h": "c",
         "cfe_sb_platform_cfg.h": "c",
         "cfe_tbl_platform_cfg.h": "c",
-        "cfe_tbl_internal_cfg.h": "c"
+        "cfe_tbl_internal_cfg.h": "c",
+        "gssb_common.h": "c",
+        "gssb_dev.h": "c",
+        "error.h": "c",
+        "master.h": "c",
+        "slave.h": "c",
+        "local.h": "c"
     },
     "cmake.sourceDirectory": "/home/hj/Documents/FSW/tools/elf2cfetbl"
 }
